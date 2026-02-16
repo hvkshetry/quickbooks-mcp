@@ -467,7 +467,7 @@ async def report(
     Args:
         operation: One of the report types listed above.
         start_date: Report start date (YYYY-MM-DD). Required for P&L, CF, GL.
-        end_date: Report end date (YYYY-MM-DD). Used by all date-range reports.
+        end_date: Report end date (YYYY-MM-DD). For aging reports, this sets the as-of date.
         accounting_method: "Cash" or "Accrual" (default depends on QBO company setting).
         department: Department ID to filter by.
         class_id: Class ID to filter by.
@@ -488,11 +488,25 @@ async def report(
         valid = ", ".join(sorted(REPORT_ENDPOINTS.keys()))
         return _json({"error": f"Unknown report: {operation}. Valid: {valid}"})
 
+    # Aging reports use `report_date` instead of start_date/end_date
+    AGING_REPORTS = {
+        "ar_aging_summary", "ar_aging_detail",
+        "ap_aging_summary", "ap_aging_detail",
+    }
+
     params = {}
-    if start_date:
-        params["start_date"] = start_date
-    if end_date:
-        params["end_date"] = end_date
+    if operation in AGING_REPORTS:
+        # QBO aging API expects `report_date`, not start_date/end_date
+        if end_date:
+            params["report_date"] = end_date
+        elif start_date:
+            params["report_date"] = start_date
+    else:
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+
     if accounting_method:
         params["accounting_method"] = accounting_method
     if department:
